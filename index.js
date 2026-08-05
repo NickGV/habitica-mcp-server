@@ -1,5 +1,8 @@
 #!/usr/bin/env node
 
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import dotenv from 'dotenv';
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import {
@@ -11,6 +14,9 @@ import {
 import axios from 'axios';
 import { z } from 'zod';
 import { setLanguage, t } from './i18n.js';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+dotenv.config({ path: path.join(__dirname, '.env'), quiet: true });
 
 // Habitica API 基础配置
 const HABITICA_API_BASE = 'https://habitica.com/api/v3';
@@ -33,6 +39,7 @@ const habiticaClient = axios.create({
   headers: {
     'x-api-user': HABITICA_USER_ID,
     'x-api-key': HABITICA_API_TOKEN,
+    'x-client': 'habitica-mcp-server-0.0.5',
     'Content-Type': 'application/json',
   },
 });
