@@ -2,6 +2,8 @@
 
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { realpathSync } from 'node:fs';
+import { createRequire } from 'node:module';
 import dotenv from 'dotenv';
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
@@ -14,9 +16,16 @@ import {
 import axios from 'axios';
 import { z } from 'zod';
 import { setLanguage, t } from './i18n.js';
+import { validateArgs } from './validation.js';
+import { createRateLimitInterceptor } from './retry.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: path.join(__dirname, '.env'), quiet: true });
+
+// Read the server version from package.json (ESM-safe) so the x-client
+// header always matches the released version.
+const require = createRequire(import.meta.url);
+const { version } = require('./package.json');
 
 // Habitica API 基础配置
 const HABITICA_API_BASE = 'https://habitica.com/api/v3';
@@ -34,15 +43,19 @@ if (!HABITICA_USER_ID || !HABITICA_API_TOKEN) {
 }
 
 // 创建 Habitica API 客户端
-const habiticaClient = axios.create({
+export const habiticaClient = axios.create({
   baseURL: HABITICA_API_BASE,
   headers: {
     'x-api-user': HABITICA_USER_ID,
     'x-api-key': HABITICA_API_TOKEN,
-    'x-client': 'habitica-mcp-server-0.0.5',
+    'x-client': `habitica-mcp-server-${version}`,
     'Content-Type': 'application/json',
   },
 });
+
+// Add 429 rate-limit handling: GET retried (Retry-After + backoff + jitter),
+// writes fail cleanly and are never auto-retried.
+createRateLimitInterceptor(habiticaClient);
 
 // 创建 MCP 服务器
 const server = new Server(
@@ -491,11 +504,18 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
   };
 });
 
-// 注册工具调用处理器
-server.setRequestHandler(CallToolRequestSchema, async (request) => {
-  const { name, arguments: args } = request.params;
+// Export so tests can drive the handler without starting the stdio server.
+export const callToolHandler = async (request) => {
+  const { name, arguments: requestedArgs } = request.params;
 
   try {
+    // Validate arguments against the tool's schema before any Habitica call.
+    const validation = validateArgs(name, requestedArgs ?? {});
+    if (!validation.ok) {
+      throw new McpError(ErrorCode.InvalidParams, validation.message);
+    }
+    const args = validation.data;
+
     switch (name) {
       case 'get_user_profile':
         return await getUserProfile();
@@ -576,17 +596,20 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         return await scoreChecklistItem(args.taskId, args.itemId);
       
       default:
-        throw new McpError(ErrorCode.MethodNotFound, `未知工具: ${name}`);
+        throw new McpError(ErrorCode.MethodNotFound, t('Unknown tool: ', '未知工具: ') + name);
     }
   } catch (error) {
     if (error instanceof McpError) {
       throw error;
     }
     
-    const errorMessage = error.response?.data?.message || error.message || '未知错误';
-    throw new McpError(ErrorCode.InternalError, `Habitica API 错误: ${errorMessage}`);
+    const errorMessage = error.response?.data?.message || error.message || t('Unknown error', '未知错误');
+    throw new McpError(ErrorCode.InternalError, t('Habitica API error: ', 'Habitica API 错误: ') + errorMessage);
   }
-});
+};
+
+// 注册工具调用处理器
+server.setRequestHandler(CallToolRequestSchema, callToolHandler);
 
 // 工具实现函数
 async function getUserProfile() {
@@ -966,7 +989,15 @@ async function runServer() {
   console.error('Habitica MCP 服务器已启动');
 }
 
-runServer().catch((error) => {
-  console.error('服务器启动失败:', error);
-  process.exit(1);
-}); 
+// Start the server only when executed directly (node index.js). When the
+// module is imported from tests, the stdio transport must not be started.
+const isMainModule =
+  Boolean(process.argv[1]) &&
+  realpathSync(fileURLToPath(import.meta.url)) === realpathSync(process.argv[1]);
+
+if (isMainModule) {
+  runServer().catch((error) => {
+    console.error('服务器启动失败:', error);
+    process.exit(1);
+  });
+} 
