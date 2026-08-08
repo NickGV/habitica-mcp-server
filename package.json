@@ -10,7 +10,7 @@
   "scripts": {
     "start": "node index.js",
     "dev": "node --watch index.js",
-    "test": "echo \"No tests specified\" && exit 0",
+    "test": "vitest run",
     "publish-check": "node scripts/publish-check.js",
     "prepublishOnly": "npm run publish-check"
   },
@@ -53,6 +53,8 @@
   "files": [
     "index.js",
     "i18n.js",
+    "retry.js",
+    "validation.js",
     "README.md",
     "README.zh-CN.md",
     "LICENSE",
@@ -60,5 +62,8 @@
   ],
   "publishConfig": {
     "access": "public"
+  },
+  "devDependencies": {
+    "vitest": "^4.1.10"
   }
 }
