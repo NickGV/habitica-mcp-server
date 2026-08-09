@@ -120,6 +120,10 @@ export const toolSchemas = {
   }),
 };
 
+// Single source of truth for the tool registry: derive the name list from
+// the schemas so index.js tools[] and this map cannot drift silently.
+export const toolNames = Object.keys(toolSchemas);
+
 // Formats the first validation issue as "field: message" so an agent can
 // correct the call. `path` names the failing field; zod messages already
 // include the received value ("expected X, received Y").
@@ -134,7 +138,12 @@ function formatIssue(issue) {
 export function validateArgs(name, args) {
   const schema = toolSchemas[name];
   if (!schema) {
-    return { ok: true, data: args ?? {} };
+    // Unknown tool: reject loudly instead of forwarding raw args — a tool
+    // missing from toolSchemas would otherwise bypass validation entirely.
+    return {
+      ok: false,
+      message: t('Unknown tool: ', '未知工具: ') + name,
+    };
   }
 
   const result = schema.safeParse(args ?? {});

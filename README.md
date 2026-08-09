@@ -78,6 +78,10 @@ HABITICA_API_TOKEN=your-api-token
 
 > ⚠️ **Security tip:** never commit your API keys to version control.
 
+### Client configuration
+
+See **[CLIENT_INTEGRATION.md](CLIENT_INTEGRATION.md)** for step-by-step setup in **opencode**, **Claude Code**, and **Hermes Agent** (with global, project, CLI, and tool-filtering examples).
+
 ## 🎯 Usage
 
 ### Start the server

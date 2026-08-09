@@ -99,27 +99,27 @@ describe('dispatch validation (before any Habitica call)', () => {
   });
 });
 
-describe('unknown tool (MethodNotFound, localized)', () => {
+describe('unknown tool (rejected by the validation gate, localized)', () => {
   beforeEach(() => {
     setLanguage('en');
   });
 
-  it('returns MethodNotFound in English by default', async () => {
+  it('rejects an unknown tool in English by default', async () => {
     const error = await callToolHandler(
       scriptedRequest({ name: 'bogus_tool', args: {} })
     ).catch((e) => e);
 
-    expect(error.code).toBe(ErrorCode.MethodNotFound);
-    expect(error.message).toBe(`MCP error ${ErrorCode.MethodNotFound}: Unknown tool: bogus_tool`);
+    expect(error.code).toBe(ErrorCode.InvalidParams);
+    expect(error.message).toBe(`MCP error ${ErrorCode.InvalidParams}: Unknown tool: bogus_tool`);
   });
 
-  it('returns MethodNotFound in Chinese under zh-CN', async () => {
+  it('rejects an unknown tool in Chinese under zh-CN', async () => {
     setLanguage('zh-CN');
     const error = await callToolHandler(
       scriptedRequest({ name: 'bogus_tool', args: {} })
     ).catch((e) => e);
 
-    expect(error.message).toBe(`MCP error ${ErrorCode.MethodNotFound}: 未知工具: bogus_tool`);
+    expect(error.message).toBe(`MCP error ${ErrorCode.InvalidParams}: 未知工具: bogus_tool`);
   });
 
   it('falls back to English for unsupported locales', async () => {
@@ -128,7 +128,7 @@ describe('unknown tool (MethodNotFound, localized)', () => {
       scriptedRequest({ name: 'bogus_tool', args: {} })
     ).catch((e) => e);
 
-    expect(error.message).toBe(`MCP error ${ErrorCode.MethodNotFound}: Unknown tool: bogus_tool`);
+    expect(error.message).toBe(`MCP error ${ErrorCode.InvalidParams}: Unknown tool: bogus_tool`);
   });
 });
 
@@ -169,6 +169,20 @@ describe('API error localization', () => {
     expect(error.code).toBe(ErrorCode.InternalError);
     expect(error.message).toBe(
       `MCP error ${ErrorCode.InternalError}: Habitica API error: Unknown error`
+    );
+  });
+
+  it('falls back to "未知错误" (Chinese) when no message exists under zh-CN', async () => {
+    setLanguage('zh-CN');
+    installFailingAdapter(undefined, { withResponse: false });
+
+    const error = await callToolHandler(
+      scriptedRequest({ name: 'get_tasks', args: {} })
+    ).catch((e) => e);
+
+    expect(error.code).toBe(ErrorCode.InternalError);
+    expect(error.message).toBe(
+      `MCP error ${ErrorCode.InternalError}: Habitica API 错误: 未知错误`
     );
   });
 });

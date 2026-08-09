@@ -14,7 +14,6 @@ import {
   McpError,
 } from '@modelcontextprotocol/sdk/types.js';
 import axios from 'axios';
-import { z } from 'zod';
 import { setLanguage, t } from './i18n.js';
 import { validateArgs } from './validation.js';
 import { createRateLimitInterceptor } from './retry.js';
@@ -37,7 +36,14 @@ const HABITICA_API_TOKEN = process.env.HABITICA_API_TOKEN;
 // Detect language (default EN)
 setLanguage(process.env.MCP_LANG || process.env.LANG || 'en');
 
-if (!HABITICA_USER_ID || !HABITICA_API_TOKEN) {
+// Run as the main script (node index.js)? Importing this module from tests
+// must never terminate the process, so the credential guard only fires when
+// the server is actually executed.
+const isMainModule =
+  Boolean(process.argv[1]) &&
+  realpathSync(fileURLToPath(import.meta.url)) === realpathSync(process.argv[1]);
+
+if (isMainModule && (!HABITICA_USER_ID || !HABITICA_API_TOKEN)) {
   console.error(t('Error: Please set HABITICA_USER_ID and HABITICA_API_TOKEN environment variables', '错误: 请设置 HABITICA_USER_ID 和 HABITICA_API_TOKEN 环境变量'));
   process.exit(1);
 }
@@ -991,10 +997,6 @@ async function runServer() {
 
 // Start the server only when executed directly (node index.js). When the
 // module is imported from tests, the stdio transport must not be started.
-const isMainModule =
-  Boolean(process.argv[1]) &&
-  realpathSync(fileURLToPath(import.meta.url)) === realpathSync(process.argv[1]);
-
 if (isMainModule) {
   runServer().catch((error) => {
     console.error('服务器启动失败:', error);

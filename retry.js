@@ -22,15 +22,15 @@ export const RETRY = {
   JITTER_RATIO: 0.5,
 };
 
-const RATE_LIMIT_EXHAUSTED = [
-  'Habitica API rate limit exceeded: still rate-limited after 4 attempts. Try again later.',
-  '超出 Habitica API 速率限制：重试 4 次后仍被限流。请稍后再试。',
-];
+const RATE_LIMIT_EXHAUSTED = {
+  en: 'Habitica API rate limit exceeded: still rate-limited after 4 attempts. Try again later.',
+  zh: '超出 Habitica API 速率限制：尝试 4 次后仍被限流。请稍后再试。',
+};
 
-const RATE_LIMIT_WRITE = [
-  'Habitica API rate limit reached. This request was NOT retried to avoid duplicate writes. Try again later.',
-  '已达到 Habitica API 速率限制。为避免重复写入，此请求未被重试。请稍后再试。',
-];
+const RATE_LIMIT_WRITE = {
+  en: 'Habitica API rate limit reached. This request was NOT retried to avoid duplicate writes. Try again later.',
+  zh: '已达到 Habitica API 速率限制。为避免重复写入，此请求未被重试。请稍后再试。',
+};
 
 // Parses a Retry-After header value into milliseconds.
 // Returns null for absent, non-numeric, or negative values so callers
@@ -47,9 +47,10 @@ function parseRetryAfterMs(header) {
 // initial request). `rand` is injectable for deterministic tests.
 //
 // With a valid Retry-After header: delay = capped(header) + uniform
-// jitter in [0, capped * JITTER_RATIO] — always at least the header
-// value. Without a header: exponential backoff with full jitter in
-// [0, min(BASE * 2^attempt, MAX_BACKOFF)] to avoid retry storms.
+// jitter in [0, capped * JITTER_RATIO] — always at least the honored
+// (capped) Retry-After value. Without a header: exponential backoff with
+// full jitter in [0, min(BASE * 2^attempt, MAX_BACKOFF)] to avoid retry
+// storms.
 export function computeRetryDelay(attempt, retryAfterHeader, rand = Math.random) {
   const retryAfterMs = parseRetryAfterMs(retryAfterHeader);
   if (retryAfterMs !== null) {
@@ -83,16 +84,16 @@ export function createRateLimitInterceptor(client, { sleep = defaultSleep } = {}
     }
 
     const config = error.config;
-    const method = (config?.method || 'get').toLowerCase();
 
-    // State-changing requests: fail cleanly, never retried.
-    if (method !== 'get') {
-      return Promise.reject(new Error(t(RATE_LIMIT_WRITE[0], RATE_LIMIT_WRITE[1])));
+    // State-changing requests: fail cleanly, never retried. The tested
+    // shouldRetry predicate decides so production runs the same rule.
+    if (!shouldRetry(config, response)) {
+      return Promise.reject(new Error(t(RATE_LIMIT_WRITE.en, RATE_LIMIT_WRITE.zh)));
     }
 
     const retriesDone = config?.__rateLimitRetries || 0;
     if (retriesDone >= RETRY.MAX_RETRIES) {
-      return Promise.reject(new Error(t(RATE_LIMIT_EXHAUSTED[0], RATE_LIMIT_EXHAUSTED[1])));
+      return Promise.reject(new Error(t(RATE_LIMIT_EXHAUSTED.en, RATE_LIMIT_EXHAUSTED.zh)));
     }
 
     const retryAfter = response.headers?.['retry-after'];

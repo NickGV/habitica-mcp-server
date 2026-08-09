@@ -1,42 +1,26 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { setLanguage } from '../i18n.js';
-import { toolSchemas, validateArgs } from '../validation.js';
-
-// The 26 tool names advertised by the server (ListTools contract).
-const TOOL_NAMES = [
-  'get_user_profile',
-  'get_tasks',
-  'create_task',
-  'score_task',
-  'update_task',
-  'delete_task',
-  'get_stats',
-  'buy_reward',
-  'get_inventory',
-  'cast_spell',
-  'get_tags',
-  'create_tag',
-  'get_pets',
-  'feed_pet',
-  'hatch_pet',
-  'get_mounts',
-  'equip_item',
-  'get_notifications',
-  'read_notification',
-  'get_shop',
-  'buy_item',
-  'add_checklist_item',
-  'update_checklist_item',
-  'delete_checklist_item',
-  'get_task_checklist',
-  'score_checklist_item',
-];
+import { toolNames, toolSchemas, validateArgs } from '../validation.js';
 
 describe('toolSchemas', () => {
   it('registers a schema for every advertised tool (26)', () => {
-    expect(Object.keys(toolSchemas)).toHaveLength(26);
-    for (const name of TOOL_NAMES) {
+    expect(toolNames).toHaveLength(26);
+    for (const name of toolNames) {
       expect(toolSchemas, `missing schema for ${name}`).toHaveProperty(name);
+    }
+  });
+
+  it('maps every exported tool to a non-stub zod object schema', () => {
+    expect(toolNames.length).toBeGreaterThan(0);
+    for (const name of toolNames) {
+      const schema = toolSchemas[name];
+      expect(schema, `missing schema for ${name}`).toBeDefined();
+      expect(typeof schema.safeParse, `schema for ${name} is not a zod object`).toBe('function');
+      const shape = schema.shape;
+      expect(shape, `schema for ${name} is not a zod object`).toBeDefined();
+      for (const [field, type] of Object.entries(shape)) {
+        expect(typeof type.parse, `field "${field}" of ${name} is not a zod type`).toBe('function');
+      }
     }
   });
 });
@@ -44,6 +28,12 @@ describe('toolSchemas', () => {
 describe('validateArgs', () => {
   beforeEach(() => {
     setLanguage('en');
+  });
+
+  it('rejects an unknown tool name instead of forwarding raw args', () => {
+    const result = validateArgs('no_such_tool', { anything: 1 });
+    expect(result.ok).toBe(false);
+    expect(result.message).toContain('no_such_tool');
   });
 
   it('strips unknown keys instead of rejecting (extra "tags" ignored)', () => {
