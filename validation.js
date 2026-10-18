@@ -36,6 +36,7 @@ export const toolSchemas = {
     notes: z.string().optional(),
     difficulty: numberEnum.optional(),
     priority: numberEnum.optional(),
+    value: z.number().min(0).optional(),
     checklist: checklistArray,
   }),
   score_task: z.object({
@@ -47,6 +48,7 @@ export const toolSchemas = {
     text: z.string().optional(),
     notes: z.string().optional(),
     completed: z.boolean().optional(),
+    value: z.number().min(0).optional(),
   }),
   delete_task: z.object({
     taskId: z.string(),

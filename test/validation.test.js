@@ -113,3 +113,20 @@ describe('validateArgs', () => {
     expect(result.message).toContain('Invalid arguments for tool "add_checklist_item"');
   });
 });
+describe('reward gold cost (value)', () => {
+  it('keeps value on create_task instead of stripping it', () => {
+    const result = validateArgs('create_task', { type: 'reward', text: 'r', value: 12 });
+    expect(result.ok).toBe(true);
+    expect(result.data.value).toBe(12);
+  });
+
+  it('keeps value on update_task instead of stripping it', () => {
+    const result = validateArgs('update_task', { taskId: 'abc', value: 22 });
+    expect(result.ok).toBe(true);
+    expect(result.data.value).toBe(22);
+  });
+
+  it('rejects a negative value', () => {
+    expect(validateArgs('update_task', { taskId: 'abc', value: -1 }).ok).toBe(false);
+  });
+});
