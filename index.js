@@ -129,6 +129,11 @@ const tools = [
           enum: [0.1, 1, 1.5, 2],
           description: t('Priority (0.1=low, 1=med, 1.5=high, 2=urgent)', '优先级 (0.1=低, 1=中, 1.5=高, 2=极高)'),
         },
+        value: {
+          type: 'number',
+          minimum: 0,
+          description: t('Gold cost (rewards only)', '金币价格 (仅奖励)'),
+        },
         checklist: {
           type: 'array',
           items: {
@@ -192,6 +197,11 @@ const tools = [
         completed: {
           type: 'boolean',
           description: t('Completed flag', '是否完成'),
+        },
+        value: {
+          type: 'number',
+          minimum: 0,
+          description: t('Gold cost (rewards only)', '金币价格 (仅奖励)'),
         },
       },
       required: ['taskId'],
